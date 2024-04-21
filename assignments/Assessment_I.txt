@@ -1,0 +1,113 @@
+****************
+* Introduction *
+****************
+
+Vietnam has the most beautiful sea on Earth. Suppose that you are in San Diego, United States, you have a big ship and you want to sail back home through the Pacific ocean. We can represent the ocean as a N x M matrix A, where N is the number of rows (N <= 100) and M is the number of columns (M <= 100). Each element A(i, j) of the matrix denotes the information of a region:
+
+-- If A(i, j) is 's', that is your starting location (i.e. San Diego). If A(i, j) is 'f', that is your home country (i.e. Vietnam). There is exactly one starting location and one destination.
+
+-- If A(i, j) is 0, that is a land. Neighboring lands can form an island or continent. We only consider 4 directions left, right, up, and down to determine the neighboring relationship between two land regions.
+
+-- If A(i, j) is bigger than 0, that denotes the level / depth of water. Obviously, the land has no water but your ship cannot go into the land. The deeper the water, the more dangerous. For simplicity, we can assume that 0 <= A(i, j) <= 9, except for the starting location and destination.
+
+
+*********
+* Input *
+*********
+
+The input file name is "ocean.in" with the following format. The first line has N and M, separated by a space. The next N lines, each line write a row of A, without any space.
+
+For example, we have a matrix of 5 rows and 6 columns. The starting point 's' is at the first row and the third column. The destination 'f' is at the last/fifth row and the first column.
+
+5 6
+10s120
+000201
+402131
+311541
+f10002
+
+
+*************************
+* Problem 1 (50% score) *
+*************************
+
+Your first task is to count the number of islands in the Pacific ocean. You also need to list the sizes of these islands (i.e. its number of regions) in an increasing order.
+
+The output file name is "ocean.out1" with the following format. The first line is the number of islands. The second line writes the list of islands' sizes in an increasing order, separated by an comma ',' and ended by a dot '.'.
+
+For example, given the above input, we have the following output. The number of islands is 4. Their sizes are 1, 1, 3 and 5.
+
+4
+1,1,3,5.
+
+
+*************************
+* Problem 2 (50% score) *
+*************************
+
+Your second task is to find the safest way back home. Your ship can travel up, down, left, and right (i.e. 4 directions). The ship cannot go into land. You want to find a path so that the sum of the water levels/depths on this path is minimized. You must know if there is such a path or not.
+
+The output file name is "ocean.out2" with the following format. There is only a single line denoting the sum of the water levels/depths of the best possible path. If there is no path, write '-1'.
+
+For example, given the above input, we have the output '9'. The best path is: right, down, down, left, down, left, down, left. The water levels on this path are: 1, 2, 1, 2, 1, 1, 1. Its sum is 9.
+
+The follows are some examples. There will be a lot more examples to evaluate your code. You can write your code in C/C++ or Python. You write only a single code for both problems. Again, the input file name is "ocean.in". The output file names are "ocean.out1" and "ocean.out2" for problem 1 and 2, respectively. We will compare your outputs with our outputs for each test case, so you must follow the output format described above.
+
+
+*********************************
+* Example 1 (the above example) *
+*********************************
+
+ocean.in
+5 6
+10s120
+000201
+402131
+311541
+f10002
+
+ocean.out1
+4
+1,1,3,5.
+
+ocean.out2
+9
+
+
+********************************
+* Example 2 (there is no path) *
+********************************
+
+ocean.in
+5 6
+10s120
+000001
+400131
+311541
+f10002
+
+ocean.out1
+3
+1,3,8.
+
+ocean.out2
+-1
+
+
+**********************************
+* Example 3 (there is no island) *
+**********************************
+
+ocean.in
+5 6
+11s721
+197351
+111131
+981541
+f13672
+
+ocean.out1
+0
+
+ocean.out2
+11

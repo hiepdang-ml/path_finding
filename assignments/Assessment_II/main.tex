@@ -1,0 +1,81 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{xcolor}
+
+\title{Entry Assessment II}
+\author{Prof. Thu Huong Dang \& Prof. Truong Son Hy}
+\date{April 2024}
+
+\begin{document}
+
+\maketitle
+
+% \noindent
+% \textbf{Timeline:} {\color{red} 2 weeks}
+
+\section*{Instructions}
+\textbf{Assessment Instructions:}
+\begin{itemize}
+    \item \textbf{Programming Language/Tool:} Use the programming language or tool that you are most comfortable with. We understand that multiple approaches can be developed/applied to solve this problem. Remark that we prefer to see one complete implementation rather than several partial ones. % If completing the entire solution within the given time frame is impossible, focus on implementing the most critical components of your chosen approach.
+    \item \textbf{Assumptions:} Clearly state any assumptions you have made about the data or the problem in your report.
+    \item \textbf{Discussion:} Be prepared to discuss the questions presented in Part II and Part III of the assessment.
+\end{itemize}
+\vspace{3mm}
+
+\textbf{We expect to receive back:}
+\begin{itemize}
+    \item A clearly written report of your method and respective results. We prefer a paper-like report.
+    \item The source code of your implementation. All your results must be \textbf{reproducible}.
+\end{itemize}
+
+\section*{Problem}
+Given a set of nodes $V = \{0, 1, \ldots, n+1\}$ and the distance between each pair of nodes $i\in V$ and $j \in V$ given as $d_{ij}$. A feasible path should satisfy the following constraints:
+\begin{itemize}
+    \item[-] the path must begin at node 0 and ends at node $n+1$
+    \item[-] each node is visited exactly once
+    \item[-] travelling from node $i \in V \setminus\{0, n+1\}$ to node $j \in V \setminus\{0, n+1\}$ is forbidden if (i) $i$ is an even number, (ii) $j$ is an odd number, and (iii) $i < n/2$
+    \item[-] travelling from node $i \in V \setminus\{0, n+1\}$ to node $j \in V \setminus\{0, n+1\}$ is forbidden if (i) $i$ is odd, (ii) $j$ is even, and (iii) $i \ge n/2$
+\end{itemize}
+
+Find the feasible path that minimises the function $(\displaystyle n \Delta\max_{i,j \in V} d_{ij}  + D)$, where $D$ is the total distance of the route, and $\Delta$ is the difference between the longest and the shortest node pair distance of a given path.
+
+For instance, consider the path $0-3-1-2-4$ with respective node pair distances $d_{03} = 10, d_{31} = 5, d_{12} = 8, d_{24} = 7$, then $D=30$ and $\Delta =d_{03}-d_{31} =5$. 
+
+\section*{Part I}
+Design and code a program that can read a csv file of the form:
+\vspace{3mm}
+
+\begin{center}
+\begin{tabular}{ccc}
+  Node\_ID   & \text{X-cor} & \text{Y-cor} \\
+   0  & 40.8 & 24.1 \\
+   1 & 82 & 10 \\
+   2 &34.12 & 23.1\\
+\end{tabular}
+\end{center}
+
+Calculate the Euclidean distances between nodes and rounded up to the first decimal place. Provide a solution to the above problem in a txt file using the following format:
+
+\begin{align*}
+    \text{Path : } & 0-1-2-3-4-5\\
+    \text{Total distances : } & 2323.12
+\end{align*}
+
+\section*{Part II}
+Be prepared to discuss the following questions:
+\begin{itemize}
+    \item[Q1)] How is your method scaling?
+    \item[Q2)] What is the required time by your method to get a good solution?
+    \item[Q3)] How would you change your method if you were asked to significantly reduce the computational time?
+    \item[Q4)] How would you change your method to deal with dynamic arrival of requests?
+    \item[Q5)] What aspects of the problem could be enhanced to include stochastic information?
+\end{itemize}
+
+\section*{Part III}
+
+Q6) Explore the potential of \textbf{Evolutionary Algorithm} (EA) and \textbf{Ant Colony Optimization} (ACO)! Try to implement them for this problem and show us the comparison (in table) among baselines!
+
+\end{document}
+
