@@ -1,17 +1,20 @@
-from typing import List, Tuple, Callable, TypeAlias, Iterator
+from abc import ABC, abstractmethod
+from typing import List, Tuple, Set, Callable, TypeAlias, Iterator
 from functools import cached_property, lru_cache
-from itertools import permutations
+from itertools import permutations, cycle
 import heapq
+import random
+import copy
 
 import numpy as np
 
 
 Route: TypeAlias = Tuple[int, ...]
 Cost: TypeAlias = float
-ResultSet: TypeAlias = Tuple[Cost, Route]
+Result: TypeAlias = Tuple[Cost, Route]
 
 
-class Solver:
+class Solver(ABC):
 
     def __init__(self, csv_path: str) -> None:
         self.csv_path = csv_path
@@ -65,7 +68,7 @@ class Solver:
             m: int = self.n + 1
         else:
             m: int = len(route)
-        for i in range(2, m):
+        for i in range(m-1, 1, -1):
             if (
                 route[i-1] % 2 == 0 and route[i] % 2 == 1 and route[i-1] < self.n // 2
             ) or (
@@ -74,30 +77,59 @@ class Solver:
                 return False
         return True
     
-    @cached_property
-    def feasible_routes(self) -> Iterator[Route]:
+    def get_all_feasible_routes(self) -> Iterator[Route]:   # expensive
         all_routes: Iterator[Route] = map(
             lambda x: (0,) + x + (self.n + 1,), 
             permutations(iterable=range(1, self.n + 1), r=self.n)
         )
-        return filter(self.is_feasible_route, all_routes)
+        for route in all_routes:
+            if self.is_feasible_route(route):
+                yield route
     
-    def find_route_brute_force(self) -> ResultSet:
-        results: List[ResultSet] = []
-        for route in self.feasible_routes:
+    @abstractmethod
+    def find_route(self) -> Result:
+        pass
+
+
+class BruteForce(Solver):
+
+    # implement
+    def find_route(self) -> Result:             # expensive
+        results: List[Result] = []
+        for route in self.get_all_feasible_routes():
+            print(f'Evaluating: {route}')
             results.append((self.compute_cost(route), route))
         return min(results, key=lambda x: x[0])
 
-    def find_route_dijkstra(self) -> ResultSet:
+
+class AStar(Solver):
+
+    # implement
+    def find_route(
+        self,
+        n_random_routes: int = 100,
+        h_coeff: float = 0.8,
+    ) -> Result:
+
+        random_routes: Set[Route] = set()
+        random_ints: List[int] = list(range(1, self.n + 1))
+        while len(random_routes) < n_random_routes:
+            random.shuffle(random_ints)
+            random_route: Route = tuple([0] + random_ints + [self.n + 1])
+            if self.is_feasible_route(random_route):
+                random_routes.add(random_route)
+            
+        random_results: List[Result] = [(self.compute_cost(route), route) for route in set(random_routes)]
+        best_cost, best_route = min(random_results, key=lambda x: x[0])
+
         # Initiate at node 0
-        pq: List[ResultSet] = [(0., (0,))]
-        best_cost = float('inf')
-        best_route: Route | None = None
-        
+        pq: List[Result] = [(0., (0,))]
+
         while pq:
+            print(f'Best (complete) route found so far: {best_route}, best_cost: {best_cost}')
             # Evaluate best route so far
             cost, route = heapq.heappop(pq)
-            print(f'Best route so far: {route}')
+            print(f'Evaluating route: {route}')
 
             # If a complete route
             if len(route) == self.n + 2:
@@ -105,7 +137,6 @@ class Solver:
                 if cost < best_cost:
                     best_cost = cost
                     best_route = route
-                    print(f'Best (complete) route found: {best_route}, best_cost: {best_cost}')
                 continue
 
             # If not a complete route, explore neighboring nodes
@@ -115,9 +146,16 @@ class Solver:
 
                 new_route: Route = route + (next_node,)
                 if self.is_feasible_route(new_route):
-                    print(f'Expand to new_route: {new_route}')
+                    print(f'Explore new_route: {new_route}')
                     new_cost: Cost = self.compute_cost(new_route)
-                    heapq.heappush(pq, (new_cost, new_route))
+                    completed_edges: int = len(new_route) - 1
+                    remaining_edges: int = self.n - 1 - completed_edges
+                    heuristic: Cost = new_cost * remaining_edges / completed_edges * h_coeff
+                    if new_cost + heuristic < best_cost:
+                        heapq.heappush(pq, (new_cost, new_route))
+                        print(f'Expand new_route: {new_route}')
+                    else:
+                        print(f'Prune from: {new_route}')
             
             print('End of expansion')
             print('----------------')
@@ -127,8 +165,18 @@ class Solver:
 
 
 
+
 if __name__ == '__main__':
-    self = Solver('assignments/Assessment_II/data/I20.csv')
-    # r_f = self.find_route_brute_force()
-    r_d = self.find_route_dijkstra()
+
+    import time
+    
+    t0 = time.time()
+    solver: Solver = AStar(csv_path='assignments/Assessment_II/data/I30.csv')
+    r = solver.find_route_Astar(n_random_routes=100, h_coeff=0.8)
+    print(r)
+    print(f'Found solution in: {time.time() - t0} seconds')
+
+
+
+
 

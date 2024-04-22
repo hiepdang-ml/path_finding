@@ -1,0 +1,12 @@
+[  
+  {
+    "data": "I20",
+    "method": "Astar",
+    "n_random_routes": 100,
+    "h_coeff": 0.8,
+    "time": 283.16529083251953
+  },
+  {
+
+  } 
+]
