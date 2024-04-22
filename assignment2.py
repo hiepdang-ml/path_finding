@@ -178,7 +178,7 @@ if __name__ == '__main__':
     
     t0 = time.time()
     solver: Solver = AStar(csv_path='assignments/Assessment_II/data/I30.csv')
-    r = solver.find_route_Astar(n_random_routes=100, h_coeff=0.8)
+    r = solver.find_route(n_random_routes=100, h_coeff=0.7)
     print(r)
     print(f'Found solution in: {time.time() - t0} seconds')
 
