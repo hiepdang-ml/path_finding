@@ -122,6 +122,9 @@ class AStar(Solver):
         random_results: List[Result] = [(self.compute_cost(route), route) for route in set(random_routes)]
         best_cost, best_route = min(random_results, key=lambda x: x[0])
 
+        # Manual garbage collect (to save some memory)
+        del random_routes, random_ints, random_route, random_results
+
         # Initiate at node 0
         pq: List[Result] = [(0., (0,))]
 
@@ -147,10 +150,13 @@ class AStar(Solver):
                 new_route: Route = route + (next_node,)
                 if self.is_feasible_route(new_route):
                     print(f'Explore new_route: {new_route}')
+                    # Compute actual cost
                     new_cost: Cost = self.compute_cost(new_route)
+                    # Compute heuristic cost
                     completed_edges: int = len(new_route) - 1
                     remaining_edges: int = self.n - 1 - completed_edges
                     heuristic: Cost = new_cost * remaining_edges / completed_edges * h_coeff
+                    # Decide expand or prune
                     if new_cost + heuristic < best_cost:
                         heapq.heappush(pq, (new_cost, new_route))
                         print(f'Expand new_route: {new_route}')
