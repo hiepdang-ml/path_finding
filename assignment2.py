@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Set, Dict, Callable, TypeAlias, Iterator, Any
+from typing import List, Tuple, Set, Dict, Callable, TypeAlias, Iterator, Any, Optional
 from functools import cached_property, lru_cache, wraps
 from itertools import permutations
 import heapq
@@ -23,6 +23,9 @@ def track_time(func: Callable[..., Any]) -> Callable[..., Any]:
         self.duration = time.time() - t0
         return result
     return wrapper
+
+class NeedDifferentCrossoverPoints(Exception):
+    pass
 
 
 # IMPLEMENTATION:
@@ -207,15 +210,11 @@ class GeneticAlgorithm(Solver):
         csv_path: str, 
         population_size: int = 1000,
         tolerance: int = 100,
-        crossover_rate: float = 0.5,
-        mutation_rate: float = 0.1,
         seed: int = +1_347_247_9378,
     ):
         super().__init__(csv_path)
         self.population_size: int = population_size
-        self.crossover_rate: float = crossover_rate
-        self.mutation_rate: float = mutation_rate
-        self.tolerance: int = tolerance
+        self.tolerance = tolerance
 
         self.seed: int = seed
         random.seed(seed)
@@ -224,17 +223,8 @@ class GeneticAlgorithm(Solver):
             (self.compute_cost(route), route)
             for route in self.get_random_feasible_routes(n=self.population_size, seed=seed)
         ]
-        self.population = sorted(self.population, key=lambda x: x[0])
-        self.bred_offsprings: Set[Result] = set()
-
-    def are_same_group_nodes(self, node1: int, node2: int) -> bool:
-        if node1 % 2 != node2 % 2:
-            return False
-        if node1 < self.n // 2 and node2 >= self.n // 2:
-            return False
-        if node1 >= self.n // 2 and node2 < self.n // 2:
-            return False
-        return True
+        self.population: List[Result] = sorted(self.population, key=lambda x: x[0])
+        self.bred_offsprings: Set[Route] = set([individual[1] for individual in self.population])
     
     @cached_property
     def node_groups(self) -> Tuple[Set[int]]:
@@ -255,6 +245,17 @@ class GeneticAlgorithm(Solver):
                 else:
                     group4.add(node)
         return group0, group1, group2, group3, group4
+    
+    def is_feasbile_transition(self, from_node: int, to_node: int) -> bool:
+        if (from_node == 0) != (to_node == self.n + 1):     # logical XOR
+            return True
+        if (from_node == 0) and (to_node == self.n + 1):
+            return False
+        if from_node < self.n // 2 and from_node % 2 == 0 and to_node % 2 == 1:
+            return False
+        if from_node >= self.n // 2 and from_node % 2 == 1 and to_node % 2 == 0:
+            return False
+        return True
 
     def selection(self) -> Tuple[List[Route], List[Route]]:
         fitnesses = np.array(
@@ -269,69 +270,117 @@ class GeneticAlgorithm(Solver):
             weights=probabilities
         )
         parent2s: List[Route] = random.choices(
-            population=population_routes, 
+            population=population_routes,
             k=len(population_routes) // 2, 
             weights=probabilities
         )
         return parent1s, parent2s
     
-    # TODO: implement standard position-preserving crossover
+    def custom_ox1_crossover(self, parent1: Route, parent2: Route) -> Route:
+        """ 
+        Custom OX1 crossover
+        """
+        p1: List[int] = list(parent1[1:-1])
+        p2: List[int] = list(parent2[1:-1])
+        assert len(p1) == self.n
+        
+        while True:
+            try:
+                start, end = sorted(random.sample(range(1, self.n-1), 2))
+                offspring: List[int] = [None] * self.n
+                middle_section: List[int] = p1[start:end+1]
+                offspring[start:end+1] = middle_section
+
+                left_index: int = start
+                right_index: int = end + 1
+
+                # Left fill
+                remaining: List[int] = list(reversed([node for node in p2 if node not in offspring]))
+                for i in range(left_index-1, -1, -1):
+                    for node in remaining:
+                        if self.is_feasbile_transition(node, offspring[i+1]):
+                            offspring[i] = node
+                            remaining.remove(node)
+                            break
+                    else:
+                        # failed to left fill, choose different crossover points
+                        raise NeedDifferentCrossoverPoints
+
+                # Right fill
+                remaining: List[int] = [node for node in p2 if node not in offspring]
+                for i in range(right_index, self.n):
+                    for node in remaining:
+                        if self.is_feasbile_transition(offspring[i-1], node):
+                            offspring[i] = node
+                            remaining.remove(node)
+                            break
+                    else:
+                        # failed to right fill, choose different crossover points
+                        raise NeedDifferentCrossoverPoints
+
+                # Successfully filled, break the loop
+                break 
+
+            except NeedDifferentCrossoverPoints:
+                continue
+
+        offspring: Route = tuple([0] + offspring + [self.n + 1])
+        assert None not in offspring
+        assert self.is_feasible_route(offspring)
+        return offspring
+    
     def crossover(self, parent1s: List[Route], parent2s: List[Route]) -> List[Route]:
         offsprings: List[Route] = []
         for parent1, parent2 in zip(parent1s, parent2s):
-            # Start from parents
-            offspring1: List[int] = list(parent1)
-            offspring2: List[int] = list(parent2)
-            
-            for i in range(1, self.n + 1):
-                node1: int = offspring1[i]
-                node2: int = offspring2[i]
-                
-                if random.random() < self.crossover_rate and self.are_same_group_nodes(node1=node1, node2=node2):
-                    offspring1[offspring1.index(node2)] = node1
-                    offspring1[i] = node2
-                    offspring2[offspring2.index(node1)] = node2
-                    offspring2[i] = node1
-
-            offsprings.extend([tuple(offspring1), tuple(offspring2)])
-        
+            offspring1: Route = self.custom_ox1_crossover(parent1, parent2)
+            offspring2: Route = self.custom_ox1_crossover(parent2, parent1)
+            offsprings.extend([offspring1, offspring2])
         return offsprings
 
-    # TODO: implement standard position-preserving mutation
-    def mutation(self, offsprings: List[Route]) -> List[Route]:
-        mutated_offsprings: List[Route] = []
+    def custom_right_rotation_mutation(self, offspring: Route) -> Route:
+        mutated_offspring: List[int] = list(offspring)
+        selected_groups: List[Set[int]] = random.sample(
+            population=self.node_groups[1:],    # skip group0
+            k=random.randint(a=0, b=4)
+        )
+        for selected_group in selected_groups:
+            indices: List[int] = [i for i in range(len(offspring)) if offspring[i] in selected_group]
+            new_indices: List[int] = (indices * 2)[-1-len(indices):-1]  # right shift by 1
+            for i, j in zip(indices, new_indices):
+                mutated_offspring[i] = offspring[j]
         
-        for offspring in offsprings:
-            mutated_offspring: Route = offspring[:]
+        mutated_offspring: Route = tuple(mutated_offspring)
+        assert self.is_feasible_route(mutated_offspring)
+        return mutated_offspring
 
-            for group in self.node_groups[1:]:  # skip group 0
-                if random.random() < self.mutation_rate:
-                    to_permute: List[int] = [node for node in offspring if node in group]
-                    random.shuffle(to_permute)
-                    mutated_offspring: Route = tuple(
-                        to_permute.pop() if node in group else node for node in mutated_offspring
-                    )
-            
-            mutated_offsprings.append(mutated_offspring)
-        
+    def mutation(self, offsprings: List[Route]) -> List[Route]:
+        mutated_offsprings: List[Route] = [
+            self.custom_right_rotation_mutation(offspring)
+            for offspring in offsprings
+        ]
         return mutated_offsprings
 
     @track_time
     def find_route(self) -> Result:
         best_cost: float; best_route: Route
         best_cost, best_route = self.population[0]
-        n_unimprovements: int = 0
+        no_new_offsprings: int = 0
 
-        while True:
+        while no_new_offsprings < self.tolerance:
             print(f'Number of bred offsprings: {len(self.bred_offsprings)}')
             print(f'Best (complete) route found so far: {best_route}, best_cost: {best_cost}')
             parent1s: List[Route]; parent2s: List[Route]
             parent1s, parent2s = self.selection()
             offsprings: List[Route] = self.crossover(parent1s, parent2s)
             offsprings: List[Route] = self.mutation(offsprings)
-            # offsprings: Set[Route] = set(offsprings) - set(individual[1] for individual in self.population)
-            offsprings: Set[Route] = set(offsprings) - set(individual[1] for individual in self.bred_offsprings)
-            print(f'Number of new offsprings: {len(offsprings)}')
+            offsprings: Set[Route] = set(offsprings) - self.bred_offsprings
+            n_new_offsprings: int = len(offsprings)
+            print(f'Number of new offsprings: {n_new_offsprings}')
+
+            if n_new_offsprings == 0:
+                no_new_offsprings += 1
+                print(f'Could not breed any new offsprings: {no_new_offsprings}/{self.tolerance}')
+
             self.bred_offsprings.update(offsprings)
             self.population: List[Result] = self.population + [
                 (self.compute_cost(offspring), offspring)
@@ -345,16 +394,7 @@ class GeneticAlgorithm(Solver):
             if cost < best_cost:
                 best_cost = cost
                 best_route = route
-                n_unimprovements = 0
-            else:
-                n_unimprovements += 1
-                print(
-                    f'Could not improve result: '
-                    f'n_unimprovements/tolerance = {n_unimprovements}/{self.tolerance}'
-                )
-                if n_unimprovements >= self.tolerance:
-                    break
-            
+
             print('---------------')
         
         return best_cost, best_route
@@ -399,14 +439,44 @@ if __name__ == '__main__':
 
     solver = GeneticAlgorithm(
         csv_path='assignments/Assessment_II/data/I20.csv',
-        population_size=1000,
+        population_size=100,
         tolerance=1000,
-        crossover_rate=0.5,
         mutation_rate=0.9,
         seed=+1_347_247_9378,
     )
+    # solver.compute_cost(tuple(map(int, '0-14-1-9-20-3-4-2-8-16-12-6-18-11-15-5-10-13-7-17-19-21'.split('-'))))
+    # solver.compute_D((0, 12, 6, 18, 11, 15, 19, 17, 5, 20, 3, 4, 2, 14, 10, 13, 7, 1, 9, 8, 16, 21))
     r = solver.find_route()
 
+
+    # solver = GeneticAlgorithm(
+    #     csv_path='assignments/Assessment_II/data/I20.csv',
+    #     population_size=100,
+    #     tolerance=1000,
+    #     mutation_rate=0.1,
+    #     seed=+1_347_247_9378,
+    # )
+
+    # for i in range(5000):
+    #     p1, p2 = solver.get_random_feasible_routes(n=2, seed=i)
+    #     print(f'p1: {p1}')
+    #     print(f'p2: {p2}')
+    #     o1, o2 = solver.crossover(parent1s=[p1], parent2s=[p2])
+    #     print(f'o1: {o1}')
+    #     print(f'o2: {o2}')
+    #     print('=========')
+
+
+    # p1 = (0, 4, 12, 1, 16, 3, 13, 17, 15, 5, 2, 8, 18, 20, 19, 9, 11, 7, 6, 10, 14, 21)
+    # p2 = (0, 17, 7, 19, 3, 13, 1, 5, 14, 11, 9, 6, 12, 18, 2, 8, 16, 10, 4, 20, 15, 21)
+    # o1 = solver.custom_ox1_crossover(parent1=p1, parent2=p2)
+    # print('=========')
+
+    # for p in solver.get_random_feasible_routes(n=5000, seed=1):
+    #     a = solver.mutation([p])[0]
+    #     print(p)
+    #     print(a)
+    #     print('----')
 
 
 
