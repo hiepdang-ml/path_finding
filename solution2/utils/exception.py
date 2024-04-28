@@ -1,0 +1,3 @@
+class NeedDifferentCrossoverPoints(Exception):
+    pass
+
