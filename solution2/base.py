@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Set, Dict, Iterator, Any
+from typing import List, Tuple, Set, Dict, Iterator, Any, Optional, Callable
 from functools import cached_property
 from itertools import permutations
 import random
@@ -7,7 +7,7 @@ import random
 import numpy as np
 from numpy.typing import NDArray
 
-from .utils.type_alias import Route, Cost, Result
+from utils.type_alias import Route, Cost, Result
 
 
 class Solver(ABC):
@@ -19,8 +19,8 @@ class Solver(ABC):
             next(file)      # skip first row
             data: List[str] = file.readlines()
 
-        pre_process = lambda s: [
-            float(x) for x in s.replace('\n','').split(',')[-2:]
+        pre_process: Callable[[str], List[float]] = lambda s: [
+            float(x) for x in s.replace('\n', '').split(',')[-2:]
         ]
         data: List[List[float]] = list(map(pre_process, data))
         self.nodes = np.array(data, dtype=np.float32)
@@ -78,7 +78,7 @@ class Solver(ABC):
             if self.is_feasible_route(route):
                 yield route
 
-    def get_random_feasible_routes(self, n: int, seed: int) -> Set[Route]:
+    def get_random_feasible_routes(self, n: int, seed: Optional[int] = None) -> Set[Route]:
         random.seed(seed)
         random_routes: Set[Route] = set()
         random_ints: List[int] = list(range(1, self.n + 1))

@@ -1,28 +1,23 @@
 from typing import List, Set
+import argparse
 import heapq
 
-from .utils.functional import track_time
-from .utils.type_alias import Route, Result, Cost
-from .base import Solver
+from utils.functional import track_time
+from utils.type_alias import Route, Result, Cost
+from base import Solver
 
 
-class AStar(Solver):
+class CustomAStar(Solver):
 
-    def __init__(
-        self, 
-        csv_path: str, 
-        n_random_routes: int = 100,
-        h_coeff: float = 0.8,
-        seed: int = +1_347_247_9378,
-    ) -> None:
+    def __init__(self, csv_path: str, n_random_routes: int, h_coeff: float) -> None:
+
         super().__init__(csv_path)
         self.n_random_routes: int = n_random_routes
         self.h_coeff: float =h_coeff
-        self.seed: int = seed
 
     @track_time
     def find_route(self) -> Result:
-        random_routes: Set[Route] = self.get_random_feasible_routes(n=self.n_random_routes, seed=self.seed)
+        random_routes: Set[Route] = self.get_random_feasible_routes(n=self.n_random_routes)
         random_results: List[Result] = [(self.compute_cost(route), route) for route in random_routes]
         best_cost, best_route = min(random_results, key=lambda x: x[0])
 
@@ -73,3 +68,19 @@ class AStar(Solver):
         return best_cost, best_route
     
     
+def main() -> None:
+    parser = argparse.ArgumentParser(description='Run Custom A-Star Algorithm')
+    parser.add_argument('--csv_path', '-f', type=str, required=True, help='Path to the data file.')
+    parser.add_argument('--n_random_routes', '-n', type=int, default=100, help='Number of random routes to initialize')
+    parser.add_argument('--h_coeff', '-c', type=float, default=0.8, help='Heuristic coefficient')
+    args: argparse.Namespace = parser.parse_args()
+
+    solver: Solver = CustomAStar(**vars(args))
+    r: Result = solver.find_route()
+    print(f'Found solution: {r}')
+
+
+if __name__ == '__main__':
+    main()
+    
+

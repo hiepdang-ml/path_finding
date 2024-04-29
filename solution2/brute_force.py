@@ -1,7 +1,9 @@
 from typing import List, Iterator
+import argparse
 
-from .utils.type_alias import track_time, Result, Route
-from .base import Solver
+from utils.type_alias import Result, Route
+from utils.functional import track_time
+from base import Solver
 
 class BruteForce(Solver):
 
@@ -15,3 +17,15 @@ class BruteForce(Solver):
         return min(results, key=lambda x: x[0])
 
 
+def main():
+    parser = argparse.ArgumentParser(description='Run Brute Force Algorithm')
+    parser.add_argument('--csv_path', '-f', type=str, required=True, help='Path to the data file.')
+    args: argparse.Namespace = parser.parse_args()
+
+    solver: Solver = BruteForce(**vars(args))
+    r: Result = solver.find_route()
+    print(f'Found solution: {r}')
+
+
+if __name__ == '__main__':
+    main()
