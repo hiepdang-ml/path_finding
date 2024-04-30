@@ -20,25 +20,28 @@ class AntSystem(Solver):
         alpha: float, 
         beta: float, 
         q0: float,
-        local_decay: float,
-        global_decay: float, 
+        decay: float,
+        reinforce: float, 
     ) -> None:
 
         super().__init__(csv_path)
-        self.n_ants: int = n_ants
+        if n_ants is None:
+            self.n_ants: int = self.n + 1   # A common approach: approximately equal to the number of decisions
+        else:
+            self.n_ants: int = n_ants
         self.n_iterations: int = n_iterations
         self.alpha: float = alpha
         self.beta: float = beta
         self.q0: float = q0
-        self.local_decay: float = local_decay
-        self.global_decay: float = global_decay
-        self.min_pheromone: float = 1e-6
+        self.decay: float = decay
+        self.reinforce: float = reinforce
+        self.min_pheromone: float = 1. + 1e-6
 
         assert alpha >= 0
         assert beta >= 0
         assert 0 <= q0 <= 1
-        assert 0 <= local_decay <= 1
-        assert 0 <= global_decay <= 1
+        assert 0 <= decay <= 1
+        assert 0 <= reinforce <= 1
 
         # create attractiveness and pheremone matrix, [i, j] = node_i -> node_j
         self.__pheromone_matrix: NDArray[np.float32] = self.__create_initial_pheromone_matrix()
@@ -66,9 +69,11 @@ class AntSystem(Solver):
     
     def update_pheromones(self, new_pheromones: NDArray[np.float32], decay: float) -> None:
         assert self.__pheromone_matrix.shape == new_pheromones.shape
-        self.__pheromone_matrix = np.maximum(
-            self.__pheromone_matrix * (1 - decay) + decay * new_pheromones,
-            self.min_pheromone,
+        # indices where new pheromones have been deposited:
+        nonzero_indices: NDArray[np.bool_] = np.nonzero(new_pheromones)
+        self.__pheromone_matrix[nonzero_indices] = (
+            self.__pheromone_matrix[nonzero_indices] * (1 - decay)
+            + new_pheromones[nonzero_indices] * decay
         )
 
     def __create_initial_pheromone_matrix(self):
@@ -79,14 +84,14 @@ class AntSystem(Solver):
 
     def attractiveness_func(self, distance: float) -> float:
         estimated_D: float = distance * (self.n + 1)
-        estimated_delta: float = distance
+        estimated_delta: float = distance / 2
         estimated_cost: float = (
-            self.n * estimated_delta * self.distances.max() + estimated_D
+            self.n * self.distances.max() * estimated_delta + estimated_D
         )
-        return 100 * (self.n + 1) ** 2 / (estimated_cost + 1e-6)
+        return 100 * (self.n + 1) ** 2 / (estimated_cost + 1e-6) + 1
     
     def pheromone_func(self, cost: Cost) -> float:
-        return 100 * (self.n + 1) ** 2 / (cost + 1e-6)
+        return 100 * (self.n + 1) ** 2 / (cost + 1e-6) + 1
     
     def find_allowed_nodes(self, traveled_route: List[int]) -> Set[int]:
         if len(traveled_route) == self.n + 1:
@@ -109,17 +114,15 @@ class AntSystem(Solver):
         attractivenesses: NDArray[np.float32] = self.attractiveness_matrix[at_node, allowed_nodes]
         pheromone_importances: NDArray[np.float32] = np.power(pheromones, self.alpha)
         attractiveness_importances: NDArray[np.float32] = np.power(attractivenesses, self.beta)
-        # print(f'w_pheromones: {pheromone_importances}')
-        # print(f'w_attractivenesses: {attractiveness_importances}')
-        # print('--')
         return pheromone_importances, attractiveness_importances
 
     def compute_probabilities(self, at_node: int, allowed_nodes: List[int]) -> NDArray[np.float32]:
         assert len(allowed_nodes) > 0
+        print(f'at_node: {at_node}')
+        print(f'allowed_nodes: {allowed_nodes}')
         pheromone_importances, attractiveness_importances = self.compute_importances(at_node, allowed_nodes)
-        # print(f'pheromone_importances: {pheromone_importances}')
-        # print(f'attractiveness_importances: {attractiveness_importances}')
-        # print('-----')
+        print(f'pheromone_importance: {pheromone_importances}')
+        print(f'attractiveness_importances: {attractiveness_importances}')
         numerators: NDArray[np.float32] = pheromone_importances * attractiveness_importances
         denominator: float = numerators.sum()
         return numerators / denominator
@@ -137,7 +140,10 @@ class AntSystem(Solver):
             next_node: int = allowed_nodes[combined_importances.argmax()]
         else:
             probabilities: NDArray[np.float32] = self.compute_probabilities(at_node, allowed_nodes)
+            print(f'probabilities: {probabilities}')
             next_node: int = random.choices(population=allowed_nodes, weights=probabilities, k=1).pop()
+            print(f'select node: {next_node}')
+            print('-----')
 
         return next_node
 
@@ -155,7 +161,7 @@ class AntSystem(Solver):
         deposited_pheromone_matrix[from_nodes, to_nodes] = self.pheromone_func(cost)
         return deposited_pheromone_matrix
     
-    def one_ant_run(self) -> Tuple[Cost, Route, NDArray[np.float32]]:
+    def one_ant_run(self) -> Result:
         while True:
             traveled_route: List[int] = [0]
             while len(traveled_route) < self.n + 2:
@@ -173,7 +179,10 @@ class AntSystem(Solver):
                 # local pheromone deposit
                 cost: Cost = self.compute_cost(route)
                 local_pheromone_matrix: NDArray[np.float32] = self.compute_local_deposited_pheromones(route)
-                return cost, route, local_pheromone_matrix
+                print(f'Evaluating: {route}, cost: {cost}')
+                # local pheromone update
+                self.update_pheromones(new_pheromones=local_pheromone_matrix, decay=self.decay)
+                return cost, route
 
     @track_time
     def find_route(self) -> Result:
@@ -183,35 +192,31 @@ class AntSystem(Solver):
         global_best_cost: Cost = float('inf')
         
         for i in range(self.n_iterations):
-            ant_results: List[Tuple[Cost, Route, NDArray[np.float32]]] = [
-                self.one_ant_run() for _ in range(self.n_ants)
-            ]
+            # occasionally reset pheromones to break out of local optima
+            if random.random() <= 0.01:
+                print('Reset global pheromones matrix')
+                self.reset_pheromones()
+
+            ant_results: List[Result] = [self.one_ant_run(ant_id) for ant_id in range(self.n_ants)]
             assert len(ant_results) == self.n_ants
 
-            # local pheromone update
-            for ant_result in ant_results:
-                print(f'Evaluating: {ant_result[1]}')
-                # print('local update')
-                # print(ant_result[2])
-                self.update_pheromones(new_pheromones=ant_result[2], decay=self.local_decay)
-
             # global pheromone update
-            # print('global update')
-            local_solution: Tuple[Cost, Route, NDArray[np.float32]] = min(ant_results, key=lambda x: x[0])
-            local_best_cost, local_best_route, _ = local_solution
+            print(f'Iteration: {i + 1}/{self.n_iterations}')
+            print(f'Average cost: {sum([result[0] for result in ant_results]) / self.n_ants}')
+            local_solution: Result = min(ant_results, key=lambda x: x[0])
+            local_best_cost, local_best_route = local_solution
+            print(f'Best route found in the iteration: {local_best_route}, best cost: {local_best_cost}')
             global_pheromone_matrix = self.compute_global_deposited_pheromones(cost=local_best_cost, route=local_best_route)
-            # print(global_pheromone_matrix)
-            # print('-----')
-            self.update_pheromones(new_pheromones=global_pheromone_matrix, decay=self.global_decay)
 
             if local_best_cost < global_best_cost:
                 # update global solution
                 global_best_cost = local_best_cost
                 global_best_route = local_best_route
-            
+                # global update with high decay
+                self.update_pheromones(new_pheromones=global_pheromone_matrix, decay=self.reinforce)
+
             # Log the best result so far
-            print(f'Iteration: {i}/{self.n_iterations}')
-            print(f'Best route found so far: {global_best_route}, best_cost: {global_best_cost}')
+            print(f'Best route found so far:{" "*11}{global_best_route}, best cost: {global_best_cost}')
             print(f'---------------')
 
         return global_best_cost, global_best_route
@@ -223,17 +228,23 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Run Ant Colony Optimization Algorithm')
     parser.add_argument('--csv_path', '-f', type=str, required=True, help='Path to the data file.')
-    parser.add_argument('--n_ants', '-n', type=int, default=500, help='Number of ants at each iteration')
-    parser.add_argument('--n_iterations', '-N', type=int, default=1000, help='Number of iterations')
-    parser.add_argument('--alpha', '-a', type=float, default=0.2, help='Relative importance of pheromone (exploitation)')
-    parser.add_argument('--beta', '-b', type=float, default=3., help='Relative importance of attractiveness (exploration)')
-    parser.add_argument('--q0', type=float, default=0.05, help='Relative importance of exploration (0.) vs. exploitation (1.)')
-    parser.add_argument('--local_decay', '-ld', type=float, default=0.2, help='Local pheromone decay rate (exploration)')
-    parser.add_argument('--global_decay', '-gd', type=float, default=0.4, help='Global pheromone decay rate (exploration)')
+    parser.add_argument('--n_ants', '-n', type=int, default=100, help='Number of ants at each iteration')
+    parser.add_argument('--n_iterations', '-N', type=int, default=5000, help='Number of iterations')
+    parser.add_argument('--alpha', '-a', type=float, default=4., help='Relative importance of pheromone (for exploitation)')
+    parser.add_argument('--beta', '-b', type=float, default=4., help='Relative importance of attractiveness (for exploration)')
+    parser.add_argument('--q0', type=float, default=0., help='Relative importance of exploration (0.) vs. exploitation (1.)')
+    parser.add_argument('--decay', '-d', type=float, default=1e-6, help='Local pheromone decay rate (for exploration)')
+    parser.add_argument('--reinforce', '-r', type=float, default=0.7, help='Global pheromone decay rate (for exploitation)')
     args: argparse.Namespace = parser.parse_args()
 
     solver: Solver = AntSystem(**vars(args))
     r: Result = solver.find_route()
     print(f'Found solution: {r}')
+    p = solver.pheromone_matrix
+    a = solver.attractiveness_matrix
+    pa = p * a
+    pa[0] / pa[0].sum()
 
-# Best route found so far: (0, 6, 5, 7, 1, 2, 8, 9, 3, 4, 10, 11), best_cost: 27575.20194778446
+
+# Best route found so far: (0, 13, 5, 6, 10, 12, 11, 9, 16, 14, 4, 8, 2, 20, 18, 15, 7, 17, 19, 3, 1, 21), best cost: 72456.09841918945
+# solver.compute_cost(tuple(map(int,'0-14-1-9-20-3-4-2-8-16-12-6-18-11-15-5-10-13-7-17-19-21'.split('-'))))
