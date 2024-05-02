@@ -77,17 +77,17 @@ class Solver(ABC):
             for node in self.find_allowed_nodes(traveled_path=path):
                 yield from backtrack(path + [node])
 
-        yield from backtrack([0])  # Start with an empty path
+        yield from backtrack(path=[0])  # Start with an empty path
 
     def get_random_feasible_paths(self, n: int, seed: Optional[int] = None) -> Set[Path]:
         random.seed(seed)
         random_paths: Set[Path] = set()
-        random_ints: List[int] = list(range(1, self.n + 1))
+        all_feasible_paths: Iterator[Path] = self.generate_all_feasible_paths()
         while len(random_paths) < n:
-            random.shuffle(random_ints)
-            random_path: Path = tuple([0] + random_ints + [self.n + 1])
-            if self.is_feasible_path(random_path):
-                random_paths.add(random_path)
+            feasible_path: Path = next(all_feasible_paths)
+            if random.random() < 0.2:
+                random_paths.add(feasible_path)
+
         return random_paths
     
     def is_feasbile_transition(self, from_node: int, to_node: int) -> bool:
@@ -142,7 +142,7 @@ class Solver(ABC):
 
         return group0, group1, group2, group3, group4
 
-    @abstractmethod
+    # @abstractmethod
     def find_path(self) -> Result:
         pass
 

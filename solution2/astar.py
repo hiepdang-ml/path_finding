@@ -17,18 +17,19 @@ class CustomAStar(Solver):
 
     @track_time
     def find_path(self) -> Result:
-        random_paths: Set[Path] = self.get_random_feasible_paths(n=self.n_random_paths)
-        random_results: List[Result] = [(self.compute_cost(path), path) for path in random_paths]
-        best_cost, best_path = min(random_results, key=lambda x: x[0])
-
-        # Manual garbage collect (to save some memory)
-        del random_paths, random_results
-
+        if self.n_random_paths > 0:
+            random_paths: Set[Path] = self.get_random_feasible_paths(n=self.n_random_paths)
+            random_results: List[Result] = [(self.compute_cost(path), path) for path in random_paths]
+            best_cost, _ = min(random_results, key=lambda x: x[0])
+            # Manual garbage collect (to save some memory)
+            del random_paths, random_results
+        else:
+            best_cost = float('inf')
+                    
         # Initiate at node 0
         pq: List[Result] = [(0., (0,))]
 
         while pq:
-            print(f'Best (complete) path found so far: {best_path}, best_cost: {best_cost}')
             # Evaluate best path so far
             cost, path = heapq.heappop(pq)
             print(f'Evaluating path: {path}')
@@ -39,6 +40,8 @@ class CustomAStar(Solver):
                 if cost < best_cost:
                     best_cost = cost
                     best_path = path
+                    
+                print(f'Best (complete) path found so far: {best_path}, best_cost: {best_cost}')
                 continue
 
             # If not a complete path, explore neighboring nodes
@@ -71,7 +74,7 @@ class CustomAStar(Solver):
 def main() -> None:
     parser = argparse.ArgumentParser(description='Run Custom A-Star Algorithm')
     parser.add_argument('--csv_path', '-f', type=str, required=True, help='Path to the data file.')
-    parser.add_argument('--n_random_paths', '-n', type=int, default=100, help='Number of random paths to initialize')
+    parser.add_argument('--n_random_paths', '-n', type=int, default=10, help='Number of random paths to initialize')
     parser.add_argument('--h_coeff', '-c', type=float, default=0.8, help='Heuristic coefficient')
     args: argparse.Namespace = parser.parse_args()
 
