@@ -2,7 +2,7 @@ from typing import List, Tuple, Set
 import argparse
 import random
 
-from utils.type_alias import Route, Cost, Result
+from utils.type_alias import Path, Cost, Result
 from utils.functional import track_time
 from utils.exception import NeedDifferentCrossoverPoints
 
@@ -31,10 +31,10 @@ class GeneticAlgorithm(Solver):
         self.patience: int = patience
 
         # Initialization:
-        self.discovered_routes: Set[Route] = self.get_random_feasible_routes(n=self.population_size)
+        self.discovered_paths: Set[Path] = self.get_random_feasible_paths(n=self.population_size)
         self.__population: List[Result] = [
-            (self.compute_cost(route), route)
-            for route in self.discovered_routes
+            (self.compute_cost(path), path)
+            for path in self.discovered_paths
         ]
     
     # read-only
@@ -44,12 +44,12 @@ class GeneticAlgorithm(Solver):
         # it should only be updated by method `update_population`
         return self.__population
     
-    def update_population(self, offsprings: Set[Route]) -> None:
+    def update_population(self, offsprings: Set[Path]) -> None:
         # `offsprings` set is expected to contain new individuals only
         assert offsprings.isdisjoint(self.population)
         # `offsprings` could be in any length
         individuals: List[Result] = self.__population + [
-            (self.compute_cost(route=offspring), offspring) 
+            (self.compute_cost(path=offspring), offspring) 
             for offspring in offsprings
         ]
         individuals.sort(key=lambda x: x[0])
@@ -69,22 +69,22 @@ class GeneticAlgorithm(Solver):
         print(f'Updated population with (#elites)-(#inferiors): {n_elites}-{actual_n_inferiors}')
 
     @staticmethod
-    def tournament_selection(population: List[Result], tournament_size: int = 3) -> Route:
+    def tournament_selection(population: List[Result], tournament_size: int = 3) -> Path:
         tournament_individuals: List[Result] = random.choices(population=population, k=tournament_size)
         return min(tournament_individuals, key=lambda x: x[0])[1]
 
-    def selection(self, population: List[Result]) -> Tuple[List[Route], List[Route]]:
-        parent1s: List[Route] = [
+    def selection(self, population: List[Result]) -> Tuple[List[Path], List[Path]]:
+        parent1s: List[Path] = [
             self.tournament_selection(population=population, tournament_size=3)
             for _ in range(self.n_offsprings_per_generation // 2)
         ]
-        parent2s: List[Route] = [
+        parent2s: List[Path] = [
             self.tournament_selection(population=population, tournament_size=3)
             for _ in range(self.n_offsprings_per_generation // 2)
         ]
         return parent1s, parent2s
     
-    def custom_ox1_crossover(self, parent1: Route, parent2: Route) -> Route:
+    def custom_ox1_crossover(self, parent1: Path, parent2: Path) -> Path:
         p1: List[int] = list(parent1[1: -1])
         p2: List[int] = list(parent2[1: -1])
         assert len(p1) == self.n
@@ -130,20 +130,20 @@ class GeneticAlgorithm(Solver):
             except NeedDifferentCrossoverPoints:
                 continue
 
-        offspring: Route = tuple([0] + offspring + [self.n + 1])
+        offspring: Path = tuple([0] + offspring + [self.n + 1])
         assert None not in offspring
-        assert self.is_feasible_route(offspring)
+        assert self.is_feasible_path(offspring)
         return offspring
     
-    def crossover(self, parent1s: List[Route], parent2s: List[Route]) -> List[Route]:
-        offsprings: List[Route] = []
+    def crossover(self, parent1s: List[Path], parent2s: List[Path]) -> List[Path]:
+        offsprings: List[Path] = []
         for parent1, parent2 in zip(parent1s, parent2s):
-            offspring1: Route = self.custom_ox1_crossover(parent1, parent2)
-            offspring2: Route = self.custom_ox1_crossover(parent2, parent1)
+            offspring1: Path = self.custom_ox1_crossover(parent1, parent2)
+            offspring2: Path = self.custom_ox1_crossover(parent2, parent1)
             offsprings.extend([offspring1, offspring2])
         return offsprings
 
-    def custom_right_rotation_mutation(self, offspring: Route) -> Route:
+    def custom_right_rotation_mutation(self, offspring: Path) -> Path:
         mutated_offspring: List[int] = list(offspring)
 
         # selected group(s) for right rotation
@@ -156,44 +156,44 @@ class GeneticAlgorithm(Solver):
             for i, j in zip(indices, new_indices):
                 mutated_offspring[i] = offspring[j]
         
-        mutated_offspring: Route = tuple(mutated_offspring)
-        assert self.is_feasible_route(mutated_offspring)
+        mutated_offspring: Path = tuple(mutated_offspring)
+        assert self.is_feasible_path(mutated_offspring)
         return mutated_offspring
 
-    def mutation(self, offsprings: List[Route]) -> List[Route]:
-        mutated_offsprings: List[Route] = [
+    def mutation(self, offsprings: List[Path]) -> List[Path]:
+        mutated_offsprings: List[Path] = [
             self.custom_right_rotation_mutation(offspring)
             for offspring in offsprings
         ]
         return mutated_offsprings
 
     @track_time
-    def find_route(self) -> Result:
-        best_cost: Cost; best_route: Route
-        best_cost, best_route = min(self.population, key=lambda x: x[0])
+    def find_path(self) -> Result:
+        best_cost: Cost; best_path: Path
+        best_cost, best_path = min(self.population, key=lambda x: x[0])
 
         no_improvements: int = 0
         while no_improvements < self.patience:
-            print(f'Number of discovered routes: {len(self.discovered_routes)}')
-            print(f'Best route found so far: {best_route}, best_cost: {best_cost}')
-            parent1s: List[Route]; parent2s: List[Route]
+            print(f'Number of discovered paths: {len(self.discovered_paths)}')
+            print(f'Best path found so far: {best_path}, best_cost: {best_cost}')
+            parent1s: List[Path]; parent2s: List[Path]
             parent1s, parent2s = self.selection(population=self.population)
-            offsprings: List[Route] = self.crossover(parent1s, parent2s)
-            offsprings: List[Route] = self.mutation(offsprings)
+            offsprings: List[Path] = self.crossover(parent1s, parent2s)
+            offsprings: List[Path] = self.mutation(offsprings)
 
-            new_routes: Set[Route] = set(offsprings) - self.discovered_routes
-            n_new_routes: int = len(new_routes)
-            print(f'Number of new offsprings: {n_new_routes}')
+            new_paths: Set[Path] = set(offsprings) - self.discovered_paths
+            n_new_paths: int = len(new_paths)
+            print(f'Number of new offsprings: {n_new_paths}')
             
-            self.discovered_routes.update(new_routes)
+            self.discovered_paths.update(new_paths)
             # only update offsprings that are never seen before to the population
-            self.update_population(offsprings=new_routes)
-            cost: Cost; route: Route
-            cost, route = min(self.population, key=lambda x: x[0])
+            self.update_population(offsprings=new_paths)
+            cost: Cost; path: Path
+            cost, path = min(self.population, key=lambda x: x[0])
 
             if cost < best_cost:
                 best_cost = cost
-                best_route = route
+                best_path = path
                 no_improvements = 0
             else:
                 no_improvements += 1
@@ -201,7 +201,7 @@ class GeneticAlgorithm(Solver):
 
             print('---------------')
         
-        return best_cost, best_route
+        return best_cost, best_path
 
 
 def main() -> None:
@@ -215,7 +215,7 @@ def main() -> None:
     args: argparse.Namespace = parser.parse_args()
 
     solver: Solver = GeneticAlgorithm(**vars(args))
-    r: Result = solver.find_route()
+    r: Result = solver.find_path()
     print(f'Found solution: {r}')
 
 

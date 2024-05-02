@@ -1,6 +1,6 @@
 from typing import Tuple, TypeAlias
 
 
-Route: TypeAlias = Tuple[int, ...]
+Path: TypeAlias = Tuple[int, ...]
 Cost: TypeAlias = float
-Result: TypeAlias = Tuple[Cost, Route]
+Result: TypeAlias = Tuple[Cost, Path]

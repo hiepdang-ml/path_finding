@@ -7,7 +7,7 @@ import random
 import numpy as np
 from numpy.typing import NDArray
 
-from utils.type_alias import Route, Cost, Result
+from utils.type_alias import Path, Cost, Result
 
 
 class Solver(ABC):
@@ -35,14 +35,14 @@ class Solver(ABC):
         )
         return np.sqrt(np.sum(diff**2, axis=-1)).round(decimals=1)
 
-    def compute_D(self, route: Route) -> float:
+    def compute_D(self, route: Path) -> float:
         return self.distances[route[:-1], route[1:]].sum()
 
-    def compute_delta(self, route: Route) -> float:
+    def compute_delta(self, route: Path) -> float:
         distances: NDArray[np.float32] = self.distances[route[:-1], route[1:]]
         return distances.max() - distances.min()
     
-    def compute_cost(self, route: Route, log: bool = False) -> Cost:
+    def compute_cost(self, route: Path, log: bool = False) -> Cost:
         delta: float = self.compute_delta(route)
         D: float = self.compute_D(route)
         cost: float = self.n * self.distances.max() * delta + D
@@ -51,7 +51,7 @@ class Solver(ABC):
             print(f'Total distances : {D}')
         return cost
     
-    def is_feasible_route(self, route: Route) -> bool:
+    def is_feasible_route(self, route: Path) -> bool:
         if route[0] != 0:
             return False
         if len(route) == self.n + 2 and route[-1] != self.n + 1:    # complete route
@@ -69,8 +69,8 @@ class Solver(ABC):
                 return False
         return True
     
-    def generate_all_feasible_routes(self) -> Iterator[Route]:   # expensive
-        all_routes: Iterator[Route] = map(
+    def generate_all_feasible_routes(self) -> Iterator[Path]:   # expensive
+        all_routes: Iterator[Path] = map(
             lambda x: (0,) + x + (self.n + 1,), 
             permutations(iterable=range(1, self.n + 1), r=self.n)
         )
@@ -78,13 +78,13 @@ class Solver(ABC):
             if self.is_feasible_route(route):
                 yield route
 
-    def get_random_feasible_routes(self, n: int, seed: Optional[int] = None) -> Set[Route]:
+    def get_random_feasible_routes(self, n: int, seed: Optional[int] = None) -> Set[Path]:
         random.seed(seed)
-        random_routes: Set[Route] = set()
+        random_routes: Set[Path] = set()
         random_ints: List[int] = list(range(1, self.n + 1))
         while len(random_routes) < n:
             random.shuffle(random_ints)
-            random_route: Route = tuple([0] + random_ints + [self.n + 1])
+            random_route: Path = tuple([0] + random_ints + [self.n + 1])
             if self.is_feasible_route(random_route):
                 random_routes.add(random_route)
         return random_routes

@@ -1,19 +1,19 @@
 from typing import List, Iterator
 import argparse
 
-from utils.type_alias import Result, Route
+from utils.type_alias import Result, Path
 from utils.functional import track_time
 from base import Solver
 
 class BruteForce(Solver):
 
     @track_time
-    def find_route(self) -> Result:     # expensive
-        feasible_routes: Iterator[Route] = self.generate_all_feasible_routes()
+    def find_path(self) -> Result:     # expensive
+        feasible_paths: Iterator[Path] = self.generate_all_feasible_paths()
         results: List[Result] = []
-        for route in feasible_routes:
-            print(f'Evaluating: {route}')
-            results.append((self.compute_cost(route), route))
+        for path in feasible_paths:
+            print(f'Evaluating: {path}')
+            results.append((self.compute_cost(path), path))
         return min(results, key=lambda x: x[0])
 
 
@@ -23,7 +23,7 @@ def main():
     args: argparse.Namespace = parser.parse_args()
 
     solver: Solver = BruteForce(**vars(args))
-    r: Result = solver.find_route()
+    r: Result = solver.find_path()
     print(f'Found solution: {r}')
 
 
