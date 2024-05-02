@@ -93,19 +93,6 @@ class AntSystem(Solver):
     def pheromone_func(self, cost: Cost) -> float:
         return 100 * (self.n + 1) ** 2 / (cost + 1e-6) + 1
     
-    def find_allowed_nodes(self, traveled_path: List[int]) -> Set[int]:
-        if len(traveled_path) == self.n + 1:
-            return {self.n + 1}
-        
-        at_node = traveled_path[-1]
-        allowed_nodes: Set[int] = {
-            node 
-            for node in range(self.n + 1) 
-            if node not in traveled_path 
-                and self.is_feasbile_transition(from_node=at_node, to_node=node)
-        }
-        return allowed_nodes
-    
     def compute_importances(self, at_node: int, allowed_nodes: List[int]) -> Tuple[
         NDArray[np.float32], NDArray[np.float32]
     ]:
@@ -238,6 +225,7 @@ if __name__ == '__main__':
     solver: Solver = AntSystem(**vars(args))
     r: Result = solver.find_path()
     print(f'Found solution: {r}')
+    print(f'Took {solver.duration} seconds')
     p = solver.pheromone_matrix
     a = solver.attractiveness_matrix
     pa = p * a

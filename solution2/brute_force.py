@@ -24,7 +24,9 @@ def main():
 
     solver: Solver = BruteForce(**vars(args))
     r: Result = solver.find_path()
+    solver.to_file(path= r[1])
     print(f'Found solution: {r}')
+    print(f'Took {solver.duration} seconds')
 
 
 if __name__ == '__main__':

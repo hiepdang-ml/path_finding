@@ -78,6 +78,7 @@ def main() -> None:
     solver: Solver = CustomAStar(**vars(args))
     r: Result = solver.find_path()
     print(f'Found solution: {r}')
+    print(f'Took {solver.duration} seconds')
 
 
 if __name__ == '__main__':
