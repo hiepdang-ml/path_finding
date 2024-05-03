@@ -42,13 +42,10 @@ class Solver(ABC):
         distances: NDArray[np.float32] = self.distances[path[:-1], path[1:]]
         return distances.max() - distances.min()
     
-    def compute_cost(self, path: Path, log: bool = False) -> Cost:
+    def compute_cost(self, path: Path) -> Cost:
         delta: float = self.compute_delta(path)
         D: float = self.compute_D(path)
         cost: float = self.n * self.distances.max() * delta + D
-        if log:
-            print(f"Path : {'-'.join(map(str, path))}")
-            print(f'Total distances : {D}')
         return cost
     
     def is_feasible_path(self, path: Path) -> bool:
@@ -70,9 +67,9 @@ class Solver(ABC):
         return True
 
     def generate_all_feasible_paths(self) -> Iterator[Path]:
-        def backtrack(path):
+        def backtrack(path: List[int]):
             if path[-1] == self.n + 1:  # completed
-                yield path
+                yield tuple(path)
                 return
             for node in self.find_allowed_nodes(traveled_path=path):
                 yield from backtrack(path + [node])
@@ -142,7 +139,7 @@ class Solver(ABC):
 
         return group0, group1, group2, group3, group4
 
-    # @abstractmethod
+    @abstractmethod
     def find_path(self) -> Result:
         pass
 

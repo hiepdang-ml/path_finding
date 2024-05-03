@@ -1,7 +1,7 @@
 from typing import List, Iterator
 import argparse
 
-from utils.type_alias import Result, Path
+from utils.type_alias import Result, Path, Cost
 from utils.functional import track_time
 from base import Solver
 
@@ -10,11 +10,14 @@ class BruteForce(Solver):
     @track_time
     def find_path(self) -> Result:     # expensive
         feasible_paths: Iterator[Path] = self.generate_all_feasible_paths()
-        results: List[Result] = []
+        best_cost = float('inf')
         for path in feasible_paths:
             print(f'Evaluating: {path}')
-            results.append((self.compute_cost(path), path))
-        return min(results, key=lambda x: x[0])
+            cost: Cost = self.compute_cost(path)
+            if cost < best_cost:
+                best_cost: Cost = cost
+                best_path: Path = path
+        return best_cost, best_path
 
 
 def main():

@@ -9,11 +9,14 @@ from base import Solver
 
 class CustomAStar(Solver):
 
-    def __init__(self, csv_path: str, n_random_paths: int, h_coeff: float) -> None:
+    """
+    Brute force solver for finding the optimal path.
+    """
 
+    def __init__(self, csv_path: str, n_random_paths: int, h_coeff: float) -> None:
         super().__init__(csv_path)
         self.n_random_paths: int = n_random_paths
-        self.h_coeff: float =h_coeff
+        self.h_coeff: float = h_coeff
 
     @track_time
     def find_path(self) -> Result:
@@ -27,7 +30,7 @@ class CustomAStar(Solver):
             best_cost = float('inf')
                     
         # Initiate at node 0
-        pq: List[Result] = [(0., (0,))]
+        pq = [(0., [0])]
 
         while pq:
             # Evaluate best path so far
@@ -45,25 +48,21 @@ class CustomAStar(Solver):
                 continue
 
             # If not a complete path, explore neighboring nodes
-            for next_node in range(1, self.n + 2):
-                if next_node in path:
-                    continue
-
-                new_path: Path = path + (next_node,)
-                if self.is_feasible_path(new_path):
-                    print(f'Explore new_path: {new_path}')
-                    # Compute actual cost
-                    new_cost: Cost = self.compute_cost(new_path)
-                    # Compute heuristic cost
-                    completed_edges: int = len(new_path) - 1
-                    remaining_edges: int = self.n - 1 - completed_edges
-                    heuristic: Cost = new_cost * remaining_edges / completed_edges * self.h_coeff
-                    # Decide expand or prune
-                    if new_cost + heuristic < best_cost:
-                        heapq.heappush(pq, (new_cost, new_path))
-                        print(f'Expand new_path: {new_path}')
-                    else:
-                        print(f'Prune from: {new_path}')
+            for next_node in self.find_allowed_nodes(traveled_path=tuple(path)):
+                new_path: List[int] = path + [next_node]
+                print(f'Explore new_path: {new_path}')
+                # Compute actual cost
+                new_cost: Cost = self.compute_cost(path=tuple(new_path))
+                # Compute heuristic cost
+                completed_edges: int = len(new_path) - 1
+                remaining_edges: int = self.n - 1 - completed_edges
+                heuristic: Cost = new_cost * remaining_edges / completed_edges * self.h_coeff
+                # Decide expand or prune
+                if new_cost + heuristic < best_cost:
+                    heapq.heappush(pq, (new_cost, new_path))
+                    print(f'Expand new_path: {new_path}')
+                else:
+                    print(f'Prune from: {new_path}')
             
             print('End of expansion')
             print('----------------')
@@ -74,7 +73,7 @@ class CustomAStar(Solver):
 def main() -> None:
     parser = argparse.ArgumentParser(description='Run Custom A-Star Algorithm')
     parser.add_argument('--csv_path', '-f', type=str, required=True, help='Path to the data file.')
-    parser.add_argument('--n_random_paths', '-n', type=int, default=10, help='Number of random paths to initialize')
+    parser.add_argument('--n_random_paths', '-n', type=int, default=100, help='Number of random paths to initialize')
     parser.add_argument('--h_coeff', '-c', type=float, default=0.8, help='Heuristic coefficient')
     args: argparse.Namespace = parser.parse_args()
 
