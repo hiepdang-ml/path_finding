@@ -7,38 +7,7 @@ from solution1.solve import Solver
 
 class Solver(ABC):
 
-    """
-    Abstract base class for solving problems based on grid input from `ocean.in`.
-    
-    Attributes
-    ----------
-    N : int
-        Number of rows in the grid.
-    M : int
-        Number of columns in the grid.
-    matrix : List[List[str]]
-        2D list representing the grid read from the input file.
-    s_loc : Tuple[int, int]
-        The location of the start point 's' in the grid.
-    f_loc : Tuple[int, int]
-        The location of the finish point 'f' in the grid.
-    visited : List[List[bool]]
-        2D list to track whether a grid cell has been visited.
-
-    Methods
-    -------
-    _reset_visited()
-        Resets the visited list to False for all cells.
-    unvisited_land(i, j)
-        Checks if a cell at position (i, j) is land and has not been visited.
-    to_file()
-        Abstract method to be implemented by subclasses to handle file output.
-    """
-
     def __init__(self) -> None:
-        """
-        Initializes the Solver by reading the grid from 'ocean.in'
-        """
         with open('ocean.in', 'r') as file:
             self.N, self.M = map(int, file.readline().split())
             self.matrix = [list(file.readline().strip()) for _ in range(self.N)]
@@ -54,28 +23,9 @@ class Solver(ABC):
         self._reset_visited()
 
     def _reset_visited(self) -> None:
-        """
-        Resets the 'visited' matrix to ensure all cells are marked as not visited.
-        This is useful to reinitialize the visitation state before a new operation.
-        """
         self.visited = [[False] * self.M for _ in range(self.N)]
 
     def unvisited_land(self, i: int, j: int) -> bool:
-        """
-        Determines if a cell (i, j) in the grid is unvisited land.
-
-        Parameters
-        ----------
-        i : int
-            Row index of the cell.
-        j : int
-            Column index of the cell.
-
-        Returns
-        -------
-        bool
-            True if the cell is land and has not been visited, False otherwise.
-        """
         return (
             0 <= i < self.N                 # valid loc
             and 0 <= j < self.M             # valid loc
@@ -85,45 +35,12 @@ class Solver(ABC):
 
     @abstractmethod
     def to_file(self) -> None:
-        """
-        Abstract method that should be implemented by subclasses to specify how to 
-        write output to a file.
-        """
         pass
 
 
 class DFS(Solver):
 
-    """
-    A concrete Solver that implements Depth-First Search (DFS) to find and count 
-    all islands in a grid.
-    
-    Methods
-    -------
-    find_island_size(i, j)
-        Recursively counts the size of an island starting from the cell (i, j).
-    count_islands()
-        Counts all the islands in the grid and their sizes.
-    to_file()
-        Writes the output to `ocean.out1`.
-    """
-
     def find_island_size(self, i: int, j: int) -> int:
-        """
-        Uses DFS to count the size of an island starting from the cell (i, j).
-
-        Parameters
-        ----------
-        i : int
-            Row index of the starting cell for DFS.
-        j : int
-            Column index of the starting cell for DFS.
-
-        Returns
-        -------
-        int
-            Size of the island including the starting cell.
-        """
         if not self.unvisited_land(i, j):
             # reach un-land cell -> stop, do not add up the count
             return 0
@@ -139,15 +56,6 @@ class DFS(Solver):
         )
     
     def count_islands(self) -> Tuple[int, List[int]]:
-        """
-        Counts all islands in the grid and records their sizes.
-
-        Returns
-        -------
-        Tuple[int, List[int]]
-            The first element is the number of islands,
-            the second is a list of the sizes of these islands sorted in ascending order.
-        """
         self._reset_visited()
         island_sizes: List[int] = []
         for i in range(self.N):
@@ -159,9 +67,6 @@ class DFS(Solver):
         return len(island_sizes), island_sizes
 
     def to_file(self) -> None:
-        """
-        Writes the number of islands and their sizes to 'ocean.out1'.
-        """
         n_islands, island_sizes = self.count_islands()
         
         with open(file='ocean.out1', mode='w') as file:

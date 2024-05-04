@@ -10,7 +10,7 @@ from utils.type_alias import Path, Cost, Result
 from base import Solver
 
 
-class AntSystem(Solver):
+class AntColonySystem(Solver):
 
     def __init__(
         self, 
@@ -19,7 +19,6 @@ class AntSystem(Solver):
         n_iterations: int,
         alpha: float, 
         beta: float, 
-        q0: float,
         decay: float,
         reinforce: float, 
     ) -> None:
@@ -32,14 +31,12 @@ class AntSystem(Solver):
         self.n_iterations: int = n_iterations
         self.alpha: float = alpha
         self.beta: float = beta
-        self.q0: float = q0
         self.decay: float = decay
         self.reinforce: float = reinforce
         self.min_pheromone: float = 1. + 1e-6
 
         assert alpha >= 0
         assert beta >= 0
-        assert 0 <= q0 <= 1
         assert 0 <= decay <= 1
         assert 0 <= reinforce <= 1
 
@@ -105,33 +102,15 @@ class AntSystem(Solver):
 
     def compute_probabilities(self, at_node: int, allowed_nodes: List[int]) -> NDArray[np.float32]:
         assert len(allowed_nodes) > 0
-        # print(f'at_node: {at_node}')
-        # print(f'allowed_nodes: {allowed_nodes}')
         pheromone_importances, attractiveness_importances = self.compute_importances(at_node, allowed_nodes)
-        # print(f'pheromone_importance: {pheromone_importances}')
-        # print(f'attractiveness_importances: {attractiveness_importances}')
         numerators: NDArray[np.float32] = pheromone_importances * attractiveness_importances
         denominator: float = numerators.sum()
         return numerators / denominator
     
-    def compute_combined_importances(self, at_node: int, allowed_nodes: List[int]) -> NDArray[np.float32]:
-        assert len(allowed_nodes) > 0
-        pheromone_importances, attractiveness_importances = self.compute_importances(at_node, allowed_nodes)
-        return pheromone_importances * attractiveness_importances
-
     def select_next_node(self, at_node: int, allowed_nodes: List[int]) -> int:
         assert len(allowed_nodes) > 0
-        if random.random() < self.q0:
-            combined_importances: NDArray[np.float32]
-            combined_importances = self.compute_combined_importances(at_node, allowed_nodes)
-            next_node: int = allowed_nodes[combined_importances.argmax()]
-        else:
-            probabilities: NDArray[np.float32] = self.compute_probabilities(at_node, allowed_nodes)
-            # print(f'probabilities: {probabilities}')
-            next_node: int = random.choices(population=allowed_nodes, weights=probabilities, k=1).pop()
-            # print(f'select node: {next_node}')
-            # print('-----')
-
+        probabilities: NDArray[np.float32] = self.compute_probabilities(at_node, allowed_nodes)
+        next_node: int = random.choices(population=allowed_nodes, weights=probabilities, k=1).pop()
         return next_node
 
     def compute_local_deposited_pheromones(self, path: Path) -> NDArray[np.float32]:
@@ -165,7 +144,6 @@ class AntSystem(Solver):
                 # local pheromone deposit
                 cost: Cost = self.compute_cost(path)
                 local_pheromone_matrix: NDArray[np.float32] = self.compute_local_deposited_pheromones(path)
-                # print(f'Evaluating: {path}, cost: {cost}')
                 # local pheromone update
                 self.update_pheromones(new_pheromones=local_pheromone_matrix, decay=self.decay)
                 return cost, path
@@ -207,30 +185,24 @@ class AntSystem(Solver):
         return global_best_cost, global_best_path
 
 
-
-if __name__ == '__main__':
-    # main()
-
+def main() -> None:
     parser = argparse.ArgumentParser(description='Run Ant Colony Optimization Algorithm')
     parser.add_argument('--csv_path', '-f', type=str, required=True, help='Path to the data file.')
     parser.add_argument('--n_ants', '-n', type=int, default=100, help='Number of ants at each iteration')
     parser.add_argument('--n_iterations', '-N', type=int, default=5000, help='Number of iterations')
     parser.add_argument('--alpha', '-a', type=float, default=4., help='Relative importance of pheromone (for exploitation)')
     parser.add_argument('--beta', '-b', type=float, default=4., help='Relative importance of attractiveness (for exploration)')
-    parser.add_argument('--q0', type=float, default=0.1, help='Relative importance of exploration (0.) vs. exploitation (1.)')
     parser.add_argument('--decay', '-d', type=float, default=1e-6, help='Local pheromone decay rate (for exploration)')
     parser.add_argument('--reinforce', '-r', type=float, default=0.7, help='Global pheromone decay rate (for exploitation)')
     args: argparse.Namespace = parser.parse_args()
 
-    solver: Solver = AntSystem(**vars(args))
+    solver: Solver = AntColonySystem(**vars(args))
     r: Result = solver.find_path()
+    solver.to_file(path=r[1])
     print(f'Found solution: {r}')
     print(f'Took {solver.duration} seconds')
-    p = solver.pheromone_matrix
-    a = solver.attractiveness_matrix
-    pa = p * a
-    pa[0] / pa[0].sum()
 
 
-# Best path found so far: (0, 13, 5, 6, 10, 12, 11, 9, 16, 14, 4, 8, 2, 20, 18, 15, 7, 17, 19, 3, 1, 21), best cost: 72456.09841918945
-# solver.compute_cost(tuple(map(int,'0-14-1-9-20-3-4-2-8-16-12-6-18-11-15-5-10-13-7-17-19-21'.split('-'))))
+if __name__ == '__main__':
+    main()
+

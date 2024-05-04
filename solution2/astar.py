@@ -9,10 +9,6 @@ from base import Solver
 
 class CustomAStar(Solver):
 
-    """
-    Brute force solver for finding the optimal path.
-    """
-
     def __init__(self, csv_path: str, n_random_paths: int, h_coeff: float) -> None:
         super().__init__(csv_path)
         self.n_random_paths: int = n_random_paths
@@ -79,11 +75,12 @@ def main() -> None:
 
     solver: Solver = CustomAStar(**vars(args))
     r: Result = solver.find_path()
+    solver.to_file(path=r[1])
     print(f'Found solution: {r}')
     print(f'Took {solver.duration} seconds')
 
 
 if __name__ == '__main__':
     main()
-    
+
 

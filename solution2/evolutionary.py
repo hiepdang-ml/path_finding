@@ -84,7 +84,7 @@ class GeneticAlgorithm(Solver):
         ]
         return parent1s, parent2s
     
-    def custom_ox1_crossover(self, parent1: Path, parent2: Path) -> Path:
+    def custom_pmx_crossover(self, parent1: Path, parent2: Path) -> Path:
         p1: List[int] = list(parent1[1: -1])
         p2: List[int] = list(parent2[1: -1])
         assert len(p1) == self.n
@@ -138,15 +138,15 @@ class GeneticAlgorithm(Solver):
     def crossover(self, parent1s: List[Path], parent2s: List[Path]) -> List[Path]:
         offsprings: List[Path] = []
         for parent1, parent2 in zip(parent1s, parent2s):
-            offspring1: Path = self.custom_ox1_crossover(parent1, parent2)
-            offspring2: Path = self.custom_ox1_crossover(parent2, parent1)
+            offspring1: Path = self.custom_pmx_crossover(parent1, parent2)
+            offspring2: Path = self.custom_pmx_crossover(parent2, parent1)
             offsprings.extend([offspring1, offspring2])
         return offsprings
 
     def custom_right_rotation_mutation(self, offspring: Path) -> Path:
         mutated_offspring: List[int] = list(offspring)
 
-        # selected group(s) for right rotation
+        # selected group for right rotation
         if random.random() < self.mutation_rate:
             selected_group: Set[int] = random.choice(
                 seq=self.node_groups[1:],    # skip group0
@@ -216,6 +216,7 @@ def main() -> None:
 
     solver: Solver = GeneticAlgorithm(**vars(args))
     r: Result = solver.find_path()
+    solver.to_file(path=r[1])
     print(f'Found solution: {r}')
     print(f'Took {solver.duration} seconds')
 
